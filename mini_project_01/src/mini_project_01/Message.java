@@ -1,9 +1,14 @@
 package mini_project_01;
 
+/*
+ *  General message wrapper.
+ */
+
 public class Message {
-	private String type;
-	private int senderId;
-	private String payload;
+	
+	private String type; // What kind of message is being sent. e.g. a heart beat, or server promotion.
+	private int senderId; // Who sent it.
+	private String payload; // Actual string data.
 	
 	public Message() {}
 	

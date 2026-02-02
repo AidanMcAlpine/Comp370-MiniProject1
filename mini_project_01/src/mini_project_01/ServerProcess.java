@@ -5,21 +5,21 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 abstract class ServerProcess {
-	protected int serverId;
-	protected int port;
-	protected ServerSocket serverSocket;
+	protected int serverId; // Unique ID of server.
+	protected int port; // Port the server is listening on.
+	protected ServerSocket serverSocket; // Listening socket that listens for client connections.
 	protected boolean running;
-	protected ExecutorService threadPool = Executors.newCachedThreadPool();
+	protected ExecutorService threadPool = Executors.newCachedThreadPool(); // ExecutorService object used to manage multi-threaded client connection.
 	
 	
 	public void start() throws IOException {
-		serverSocket = new ServerSocket(port);
+		serverSocket = new ServerSocket(port); // Open server socket on some port.
 		running = true;
 		
 		while (running) {
 			try {
-				Socket clientSocket = serverSocket.accept();
-				threadPool.submit(() -> handleConnection(clientSocket));
+				Socket clientSocket = serverSocket.accept(); // Thread paused/blocked until a client connects.
+				threadPool.submit(() -> handleConnection(clientSocket)); // Once client connects hand them off to the thread pool manager.
 			} catch (IOException e){
 				if (running) e.printStackTrace();
 			}
@@ -40,7 +40,7 @@ abstract class ServerProcess {
 		return port;
 	}
 
-	protected abstract void handleConnection(Socket clientSocket);
-	protected abstract void processMessage(String message);
+	protected abstract void handleConnection(Socket clientSocket); // Handle client connections.
+	protected abstract void processMessage(String message); // Process messages from other servers.
 	
 }
