@@ -6,8 +6,8 @@ package mini_project_01;
 
 public interface IMessageSerializer <T>{
 
-	String serialize (T message) throws Exception; // Used by servers to send some message.
+	byte[] serialize (T message) throws Exception; // Used by servers to send some message.
 	
-	T deserialize (String data, Class<T> clazz) throws Exception; // Used by servers to read some message.
+	T deserialize (byte[] data) throws Exception; // Used by servers to read some message.
 	
 }
