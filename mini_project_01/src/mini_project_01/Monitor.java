@@ -9,7 +9,8 @@ public class Monitor {
     // Server management
     private HashMap<Integer, Map.Entry<String, Integer>> servers;
     private int primaryServerId = -1;
-    // Should FailoverManager run in the same process as Monitor? I don't see a reason why not, but the UML seems to imply it shouldn't
+    // Should FailoverManager run in the same process as Monitor? I don't see a
+    // reason why not, but the UML seems to imply it shouldn't
     private FailoverManager failoverManager;
 
     // Heartbeat tracking
@@ -31,7 +32,7 @@ public class Monitor {
         this.timeoutThreshold = timeoutThreshold;
         this.running = false;
         this.port = port;
-        this.serializer = null; // TODO: add a serializer, once one exists
+        this.serializer = new JsonMessageSerializer();
         this.failoverManager = new FailoverManager();
     }
 
@@ -54,10 +55,12 @@ public class Monitor {
         while (running) {
             try (
                     Socket socket = messageListener.accept();
-                    BufferedReader reciever = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    PrintWriter sender = new PrintWriter(socket.getOutputStream())) {
-                String recieved = reciever.readLine();
-                Message message = serializer.deserialize(recieved, Message.class);
+                    DataInputStream in = new DataInputStream(socket.getInputStream());
+                    DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
+                byte[] recieved = new byte[4096];
+                int bytesRead = in.read(recieved);
+                recieved = Arrays.copyOf(recieved, bytesRead);
+                Message message = serializer.deserialize(recieved);
                 int serverId = message.getSenderId();
                 String address = socket.getInetAddress().getHostAddress();
                 int port = socket.getPort();
@@ -69,8 +72,12 @@ public class Monitor {
                         break;
                     case "REGISTER":
                         registerServer(serverId, address, port, message.getPayload() == "PRIMARY");
-                        sender.println(serializer.serialize(new Message("REGISTER_ACK", 0, "")));
+                        out.write(serializer.serialize(new Message("REGISTER_ACK", 0, "")));
                         break;
+                    case "GET_PRIMARY":
+                        Map.Entry<String, Integer> primaryAddress = servers.get(primaryServerId);
+                        out.write(serializer.serialize(new Message("CURRENT_PRIMARY", 0,
+                                primaryAddress.getKey() + ":" + primaryAddress.getValue())));
                     default:
                         System.out.println("Unknown monitor message type " + message.getType());
                         break;
@@ -99,6 +106,7 @@ public class Monitor {
                         // - Mark the server as offline until it sends another heartbeat
                         servers.remove(serverId);
                         lastHeartbeat.remove(serverId);
+                        System.out.println("Server " + serverId + " failed to send heartbeat");
                         if (serverId == primaryServerId) {
                             primaryServerId = -1;
                         }
@@ -135,7 +143,7 @@ public class Monitor {
     // Actually a lot of these functions don't need to be public
     public void registerServer(int serverId, String address, int port, boolean isPrimary) {
         servers.put(serverId, new AbstractMap.SimpleImmutableEntry<>(address, port));
-        lastHeartbeat.put(serverId, Instant.now());
+        recieveHeartbeat(serverId);
         if (isPrimary) {
             primaryServerId = serverId;
         }
@@ -149,5 +157,25 @@ public class Monitor {
     // Activates failover when necessary
     public void triggerFailover() {
         primaryServerId = failoverManager.initiateFailover(servers);
+        Map.Entry<String, Integer> primaryAddress = servers.get(primaryServerId);
+        servers.forEach((Integer serverId, Map.Entry<String, Integer> address) -> {
+            if (serverId == primaryServerId) {
+                return;
+            }
+            try (
+                    Socket promoteSender = new Socket(address.getKey(), address.getValue());
+                    DataOutputStream out = new DataOutputStream(promoteSender.getOutputStream());) {
+                out.write(new JsonMessageSerializer().serialize(
+                        new Message("NEWPRIMARY", 0, primaryAddress.getKey() + ":" + primaryAddress.getValue())));
+            } catch (IOException e) {
+                System.err.println("Failed to notify backup server " + serverId + " of new primary");
+            } catch (Exception e) {
+                System.err.println("Failed to serialize new promotion message (somehow)");
+            }
+        });
+        // TODO: At this point, the monitor is supposed to notify the clients previously
+        // connected to the primary that the primary has failed and that rediscovery is
+        // needed. How does it do this? The only place where the active connections were
+        // known was the (now inactive) primary.
     }
 }

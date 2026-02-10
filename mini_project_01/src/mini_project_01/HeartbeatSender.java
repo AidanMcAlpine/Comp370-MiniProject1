@@ -2,7 +2,6 @@ package mini_project_01;
 
 import java.io.*;
 import java.net.*;
-import java.nio.charset.StandardCharsets;
 
 public class HeartbeatSender implements Runnable {
 	private final String monitorHost; // Server monitor ip address.
