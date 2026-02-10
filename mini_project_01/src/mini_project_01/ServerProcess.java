@@ -41,6 +41,6 @@ abstract class ServerProcess {
 	}
 
 	protected abstract void handleConnection(Socket clientSocket); // Handle client connections.
-	protected abstract void processMessage(String message); // Process messages from other servers.
+	protected abstract void processMessage(Message message); // Process messages from other servers.
 	
 }
