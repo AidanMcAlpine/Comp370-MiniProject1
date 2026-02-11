@@ -2,6 +2,8 @@ package mini_project_01;
 
 import java.io.*;
 import java.net.*;
+import java.time.Duration;
+import java.time.Instant;
 
 public class HeartbeatSender implements Runnable {
 	private final String monitorHost; // Server monitor ip address.
@@ -11,16 +13,21 @@ public class HeartbeatSender implements Runnable {
 	private int intervalMs = 5000; // How often heart beats are sent.
 	private Socket socket;
 	private DataOutputStream out;
-	private JsonMessageSerializer serializer;
+	private IMessageSerializer<Message> serializer;
+
+	private Instant lastAck;
+	private final Runnable onAckFail;
 	
 	/*
 	 * Initialize with Monitor's information as well as Server's information. 
 	 */
-	public HeartbeatSender (String host, int port, int serverId) {
+	public HeartbeatSender (String host, int port, int serverId, Runnable onAckFail) {
 		this.monitorHost = host;
 		this.monitorPort = port;
 		this.serverId = serverId;
 		this.serializer = new JsonMessageSerializer();
+		this.lastAck = Instant.now();
+		this.onAckFail = onAckFail;
 	}
 	
 	/*
@@ -49,6 +56,10 @@ public class HeartbeatSender implements Runnable {
 	@Override
 	public void run() {
 		while (running) {
+			if (!isActive()) {
+				System.out.println("Haven't recieved HEARTBEAT_ACK in >="+intervalMs+"ms.");
+				onAckFail.run();
+			}
 			sendHeartbeat();
 			try {
 				Thread.sleep(intervalMs);
@@ -73,7 +84,7 @@ public class HeartbeatSender implements Runnable {
 			}
 			
 			Message heartbeat = new Message(
-				"Heartbeat",
+				"HEARTBEAT",
 				serverId,
 				"alive" // pay load is just a useless string right now, but a save state can be implemented and used later. 
 			);
@@ -99,6 +110,14 @@ public class HeartbeatSender implements Runnable {
 			System.err.println("Heartbeat failed from server " + serverId + ": " + e.getMessage());
 			closeConnection(); // Force reconnection if heart beat fails.
 		} 
+	}
+
+	public void recieveHeartbeatAck() {
+		lastAck = Instant.now();
+	}
+
+	public boolean isActive() {
+		return Duration.between(lastAck, Instant.now()).toMillis() <= intervalMs;
 	}
 	
 	public void stop() {

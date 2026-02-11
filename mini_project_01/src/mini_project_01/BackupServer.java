@@ -16,7 +16,7 @@ public class BackupServer extends ServerProcess {
         this.monitorHost = monitorHost;
         this.monitorPort = monitorPort;
         this.serializer = new JsonMessageSerializer();
-        this.heartbeatSender = new HeartbeatSender(monitorHost, monitorPort, serverId);
+        this.heartbeatSender = new HeartbeatSender(monitorHost, monitorPort, serverId, ()->System.out.println("Backup server didn't recieve HEARTBEAT_ACK"));
     }
     
     @Override

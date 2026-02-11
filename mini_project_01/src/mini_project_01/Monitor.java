@@ -68,6 +68,7 @@ public class Monitor {
                     case "HEARTBEAT":
                         if (validateAddress(serverId, address, port)) {
                             recieveHeartbeat(serverId);
+                            out.write(serializer.serialize(new Message("HEARTBEAT_ACK", 0, "")));
                         }
                         break;
                     case "REGISTER":
