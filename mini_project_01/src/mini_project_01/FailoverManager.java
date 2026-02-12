@@ -12,10 +12,11 @@ public class FailoverManager {
     }
 
     // Elects a new primary from the list of backups/associated addresses
-    // Should notify them of the change but the logic for that is not currently in place
-    // (nor is the concept of primary/backup from the server's perspective at all)
     public int initiateFailover(HashMap<Integer, Map.Entry<String, Integer>> backups) {
         int chosenPrimary = electionAlgorithm.electPrimary(new ArrayList<>(backups.keySet()));
+        if (chosenPrimary == -1) {
+            return -1;
+        }
         System.out.println("Electing server " + chosenPrimary + " as primary");
         Map.Entry<String, Integer> address = backups.get(chosenPrimary);
         try (

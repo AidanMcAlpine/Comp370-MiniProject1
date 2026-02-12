@@ -77,8 +77,12 @@ public class Monitor {
                         break;
                     case "GET_PRIMARY":
                         Map.Entry<String, Integer> primaryAddress = servers.get(primaryServerId);
-                        out.write(serializer.serialize(new Message("CURRENT_PRIMARY", 0,
-                                primaryAddress.getKey() + ":" + primaryAddress.getValue())));
+                        if (primaryAddress != null) {
+                            out.write(serializer.serialize(new Message("CURRENT_PRIMARY", 0,
+                                    primaryAddress.getKey() + ":" + primaryAddress.getValue())));
+                        } else {
+                            out.write(serializer.serialize(new Message("NO_CURRENT_PRIMARY", 0, "")));
+                        }
                     default:
                         System.out.println("Unknown monitor message type " + message.getType());
                         break;
@@ -158,6 +162,12 @@ public class Monitor {
     // Activates failover when necessary
     public void triggerFailover() {
         primaryServerId = failoverManager.initiateFailover(servers);
+        if (primaryServerId == -1) {
+            // Only way this should be able to happen is if there are no available backups
+            // Therefore we can just do nothing until one is added (as this means there
+            // are no active servers at all)
+            return;
+        }
         Map.Entry<String, Integer> primaryAddress = servers.get(primaryServerId);
         servers.forEach((Integer serverId, Map.Entry<String, Integer> address) -> {
             if (serverId == primaryServerId) {
