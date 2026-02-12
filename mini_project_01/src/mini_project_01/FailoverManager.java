@@ -1,5 +1,7 @@
 package mini_project_01;
 
+import java.io.*;
+import java.net.Socket;
 import java.util.*;
 
 public class FailoverManager {
@@ -15,7 +17,20 @@ public class FailoverManager {
     public int initiateFailover(HashMap<Integer, Map.Entry<String, Integer>> backups) {
         int chosenPrimary = electionAlgorithm.electPrimary(new ArrayList<>(backups.keySet()));
         System.out.println("Electing server " + chosenPrimary + " as primary");
-        // TODO: notify the primary of their new status, once the server logic is in place to do so
+        Map.Entry<String, Integer> address = backups.get(chosenPrimary);
+        try (
+            Socket promoteSender = new Socket(address.getKey(), address.getValue());
+            DataOutputStream out = new DataOutputStream(promoteSender.getOutputStream());
+        ) {
+            out.write(new JsonMessageSerializer().serialize(new Message("PROMOTE", 0, "PRIMARY")));
+        } catch (IOException e) {
+            System.out.println("Failed to promote new primary, retrying");
+            backups.remove(chosenPrimary);
+            return initiateFailover(backups);
+        } catch (Exception e) {
+            System.out.println("Failed to serialize promote message (somehow), retrying");
+            return initiateFailover(backups);
+        }
         return chosenPrimary;
     }
 }

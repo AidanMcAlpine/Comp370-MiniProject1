@@ -21,6 +21,13 @@ public class PrimaryServer extends ServerProcess {
         this.serializer = new JsonMessageSerializer();
         this.heartbeatSender = new HeartbeatSender(monitorHost, monitorPort, serverId);
     }
+
+    public static PrimaryServer promoteFromBackup(BackupServer backup) {
+        Map.Entry<String, Integer> monitorDetails = backup.monitorDetails();
+        PrimaryServer me = new PrimaryServer(backup.serverId, backup.port, monitorDetails.getKey(), monitorDetails.getValue());
+        // TODO: if the primary server needs to store any data, take it from the backup server's replicated version
+        return me;
+    }
     
     @Override
     public void start() throws IOException {

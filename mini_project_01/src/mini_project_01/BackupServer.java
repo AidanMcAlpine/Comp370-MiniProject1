@@ -5,7 +5,6 @@ import java.net.*;
 import java.util.*;
 
 public class BackupServer extends ServerProcess {
-    private boolean isPromoted; // Track if this backup has been promoted to primary
     private HeartbeatSender heartbeatSender;
     private String monitorHost;
     private int monitorPort;
@@ -16,7 +15,6 @@ public class BackupServer extends ServerProcess {
         this.port = port;
         this.monitorHost = monitorHost;
         this.monitorPort = monitorPort;
-        this.isPromoted = false;
         this.serializer = new JsonMessageSerializer();
         this.heartbeatSender = new HeartbeatSender(monitorHost, monitorPort, serverId);
     }
@@ -90,12 +88,19 @@ public class BackupServer extends ServerProcess {
     public void monitorPrimary() {
         System.out.println("Monitoring primary server");
     }
+
+    public Map.Entry<String, Integer> monitorDetails() {
+        return new AbstractMap.SimpleImmutableEntry<>(monitorHost, monitorPort);
+    }
     
     /**
-     * Promote this backup server to primary role. TO BE IMPLEMENTED******
+     * Promote this backup server to primary role.
      */
-    public void promote() {
+    public void promote() throws IOException {
         System.out.println("BackupServer " + serverId + " promoted to Primary role!");
-        isPromoted = true;
+
+        PrimaryServer selfPrimary = PrimaryServer.promoteFromBackup(this);
+        stop();
+        selfPrimary.start();
     }
 }
